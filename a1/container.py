@@ -35,7 +35,7 @@ class Container:
         """
         raise NotImplementedError
 
-    def remove(self) -> None:
+    def remove(self) -> Any:
         """Remove and return a single item from this Container.
         """
         raise NotImplementedError

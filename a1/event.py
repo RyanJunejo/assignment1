@@ -41,6 +41,7 @@ class Event:
     Representation Invariants:
     - self.timestamp >= 0
     """
+
     timestamp: int
 
     def __init__(self, timestamp: int) -> None:
@@ -114,6 +115,7 @@ class CustomerArrival(Event):
     Attributes:
     - customer: The arriving customer
     """
+
     timestamp: int
     customer: Customer
 
@@ -128,7 +130,7 @@ class CustomerArrival(Event):
         Preconditions:
         - timestamp >= 0
         """
-        super().__init__(timestamp)
+        Event.__init__(self, timestamp)
         self.customer = c
         self.timestamp = timestamp
         if self.customer.arrival_time is None:
@@ -141,7 +143,13 @@ class CustomerArrival(Event):
         events = []
         try:
             line_number = store.enter_line(self.customer)
-            events.append(CheckoutStarted(self.timestamp, line_number)) # must be first in line for this to happen
+            if store.first_in_line(line_number) is self.customer:
+                events.append(
+                    CheckoutStarted(self.timestamp, line_number)
+                )  # must be first in line for this to happen
+            else:
+                future_timestamp = self.timestamp + 1
+                events.append(CustomerArrival(future_timestamp, self.customer))
         except NoAvailableLineError:
             # No available line, schedule a new CustomerArrival event in the future
             future_timestamp = self.timestamp + 1
@@ -155,6 +163,7 @@ class CheckoutStarted(Event):
     Attributes:
     - line_number: The number of the checkout line.
     """
+
     timestamp: int
     line_number: int
 
@@ -166,7 +175,7 @@ class CheckoutStarted(Event):
         - timestamp >= 0
         - line_number >= 0
         """
-        super().__init__(timestamp)
+        Event.__init__(self, timestamp)
         self.timestamp = timestamp
         self.line_number = line_number
 
@@ -177,18 +186,23 @@ class CheckoutStarted(Event):
         line = store.lines[self.line_number]
         events = []
         line_number = self.line_number
-        checkout_time = store.next_checkout_time(line_number)
+        # checkout_time = line.first_in_line().item_time()
+        checkout_time = store.next_checkout_time(line_number)  # Gives right for self_serve
 
-        if checkout_time == 0:
-            # Checkout time is zero, immediately complete the checkout
-            customer = line.first_in_line()
-            line.remove_front_customer()
-            events.append(CheckoutCompleted(self.timestamp, line_number, customer))
-        else:
+        # if checkout_time == 0:
+        #     # Checkout time is zero, immediately complete the checkout
+        #     customer = line.first_in_line()
+        #     # line.remove_front_customer()
+        #     events.append(CheckoutCompleted(self.timestamp, line_number, customer))
+        if line.is_open:
             # Schedule a CheckoutCompleted event in the future
             customer = line.first_in_line()
             completion_timestamp = self.timestamp + checkout_time
             events.append(CheckoutCompleted(completion_timestamp, line_number, customer))
+            line.remove_front_customer()
+        # customer = line.first_in_line()
+        # if store.first_in_line(line_number) is customer:
+        #     events.append(CheckoutCompleted(self.timestamp + customer.item_time(), line_number, customer))
 
         return events
 
@@ -201,14 +215,14 @@ class CheckoutCompleted(Event):
       is finishing.
     - customer: The finishing customer.
     """
+
     timestamp: int
     line_number: int
     customer: Customer
 
     def __init__(self, timestamp: int, line_number: int, c: Customer) -> None:
-        """Initialize a CheckoutCompleted event.
-        """
-        super().__init__(timestamp)
+        """Initialize a CheckoutCompleted event."""
+        Event.__init__(self, timestamp)
         self.timestamp = timestamp
         self.line_number = line_number
         self.customer = c
@@ -220,19 +234,22 @@ class CheckoutCompleted(Event):
         events = []
         line_number = self.line_number
         customer = self.customer
-        store.remove_front_customer(line_number)
 
-        # Check if the line needs to be closed (not sure if we have to close the line)
-        remaining_customers = store.remove_front_customer(line_number)
-        if remaining_customers == 0:
-            closed_customers = store.close_line(line_number)
-            for closed_customer in closed_customers:
-                events.append(CheckoutCompleted(self.timestamp, line_number, closed_customer))
+        # Remove the finishing customer from the checkout line
+        store.remove_front_customer(line_number)
 
         # Check if there is a next customer in line
         next_customer = store.first_in_line(line_number)
+
+        # try to run customer arrive if the next customer is none
+        # to get them to start checkout in this timestamp
+        # if next_customer is None:
+        # events.append(CustomerArrival(self.timestamp, next_customer))
         if next_customer:
+            # Create a new CheckoutStarted event for the next customer
             events.append(CheckoutStarted(self.timestamp, line_number))
+        else:
+            pass
 
         return events
 
@@ -243,13 +260,13 @@ class CloseLine(Event):
     Attributes:
     - line_number: The number of the checkout line.
     """
+
     timestamp: int
     line_number: int
 
     def __init__(self, timestamp: int, line_number: int) -> None:
-        """Initialize a CloseLine event.
-        """
-        super().__init__(timestamp)
+        """Initialize a CloseLine event."""
+        Event.__init__(self, timestamp)
         self.timestamp = timestamp
         self.line_number = line_number
 
@@ -266,9 +283,11 @@ class CloseLine(Event):
         return events
 
 
-EVENT_SAMPLE = StringIO("""121 Arrive William Bananas 7
+EVENT_SAMPLE = StringIO(
+    """121 Arrive William Bananas 7
 22 Arrive Trevor Flowers 22 Bread 3 Cheese 3 Cheese 3
-41 Close 0""")
+41 Close 0"""
+)
 
 
 def create_event_list(event_file: TextIO) -> list[Event]:
@@ -299,8 +318,6 @@ def create_event_list(event_file: TextIO) -> list[Event]:
         timestamp = int(parts[0])
         event_type = parts[1]
 
-        line_number = 0
-
         if event_type == 'Arrive':
             # Create CustomerArrival event
             customer_name = parts[2]
@@ -312,9 +329,6 @@ def create_event_list(event_file: TextIO) -> list[Event]:
                 items.append(item)
             customer = Customer(customer_name, items)
             event = CustomerArrival(timestamp, customer)
-
-            # events.append(CheckoutStarted(timestamp, line_number))
-            # line_number += 1
 
         elif event_type == 'Close':
             # Create CloseLine event
@@ -337,6 +351,15 @@ if __name__ == '__main__':
     if check_pyta:
         import python_ta
 
-        python_ta.check_all(config={
-            'allowed-import-modules': ['__future__', 'typing', 'store',
-                                       'python_ta', 'doctest', 'io']})
+        python_ta.check_all(
+            config={
+                'allowed-import-modules': [
+                    '__future__',
+                    'typing',
+                    'store',
+                    'python_ta',
+                    'doctest',
+                    'io',
+                ]
+            }
+        )

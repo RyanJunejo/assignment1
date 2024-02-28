@@ -103,26 +103,12 @@ class GroceryStore:
         Preconditions:
         - customer is not currently in any line in this GroceryStore
         """
-        # available_lines = []
-        #
-        # for line_number, line in enumerate(self.lines):
-        #     if line.is_open and line.can_accept(customer):
-        #         available_lines.append(line_number)
-        #
-        # if not available_lines:
-        #     raise NoAvailableLineError
-        #
-        # chosen_line = min(available_lines, key=lambda line_number: len(self.lines[line_number]))
-        #
-        # self.lines[chosen_line].accept(customer)
-        #
-        # return chosen_line
         a = []
         b = []
 
         if customer.num_items() < 8:
             for line in self.lines:
-                a.append(len(line))
+                a.append(line.__len__())
             if a:
                 min_length = min(a)
                 chosen_line_index = a.index(min_length)
@@ -134,7 +120,7 @@ class GroceryStore:
                     b.append(line)
             if b:
                 for line in b:
-                    a.append(len(line))
+                    a.append(line.__len__())
                 if a:
                     min_length = min(a)
                     chosen_line_index = a.index(min_length)
@@ -150,22 +136,10 @@ class GroceryStore:
         - 0 <= line_number < self.num_lines
         """
         line = self.lines[line_number]
-
-        if not line:
-            return 0
-
-        first_customer = line.first_in_line()
-        num_items = first_customer.num_items()
-
-        # Calculate the time based on the type of checkout line
-        if line_number < self.num_lines // 3:  # Regular line
-            checkout_time = num_items
-        elif line_number < 2 * (self.num_lines // 3):  # Express line
-            checkout_time = num_items
-        else:  # Self-serve line
-            checkout_time = 2 * num_items
-
-        return checkout_time
+        if isinstance(line, SelfServeLine):
+            return line.next_checkout_time() * 2
+        else:
+            return line.next_checkout_time()
 
     def remove_front_customer(self, line_number: int) -> int:
         """If there is any customer (or customers) in checkout line
@@ -205,7 +179,7 @@ class GroceryStore:
         # Update the status of the line to indicate that it is closed
         # and remove customers after the first one
         closed_line = []
-        while len(line) > 1:
+        while line.__len__() > 1:
             closed_line.append(line.first_in_line())
             line.remove_front_customer()
 
@@ -286,7 +260,10 @@ class Customer:
         >>> c.item_time()
         10
         """
-        return sum(item.time for item in self._items)
+        total = 0
+        for item in self._items:
+            total += item.time
+        return total
 
 
 class Item:
@@ -373,7 +350,7 @@ class CheckoutLine:
         >>> line.can_accept(Customer('Sophia', []))
         True
         """
-        return self.capacity - 1 >= 0
+        return len(self._queue) < self.capacity and self.is_open
 
     def accept(self, customer: Customer) -> bool:
         """Accept <customer> into the end of this CheckoutLine if possible.
@@ -394,7 +371,6 @@ class CheckoutLine:
         """
         if self.can_accept(customer):
             self._queue.append(customer)
-            self.capacity -= 1
             return True
         else:
             return False
@@ -470,7 +446,7 @@ class CheckoutLine:
         >>> line.first_in_line() is None
         True
         """
-        if self._queue:
+        if len(self._queue) != 0:
             return self._queue[0]
         else:
             return None
@@ -480,7 +456,14 @@ class CheckoutLine:
 class RegularLine(CheckoutLine):
     """A regular CheckoutLine."""
 
-    pass
+    def next_checkout_time(self) -> int:
+        """Return the time it will take to check out the customer at the front
+        of this regular line."""
+        if self.first_in_line():
+            return self.first_in_line().item_time()
+        else:
+            return 0
+        # raise NoAvailableLineError("No customer is in the line")
 
 
 class ExpressLine(CheckoutLine):
@@ -490,18 +473,35 @@ class ExpressLine(CheckoutLine):
         """Override can_accept for express line."""
         return super().can_accept(customer) and customer.num_items() < 8
 
+    def next_checkout_time(self) -> int:
+        """Return the time it will take to check out the customer at the front
+        of this express line."""
+        if self.first_in_line():
+            return self.first_in_line().item_time()
+        else:
+            return 0
+        # raise NoAvailableLineError("No customer is in the line")
+
 
 class SelfServeLine(CheckoutLine):
     """A self-serve CheckoutLine."""
 
+    def next_checkout_time(self) -> int:
+        """Return the time it will take to check out the customer at the front
+        of this self-serve line."""
+        if self.first_in_line():
+            return self.first_in_line().item_time() # 2n for time required
+        else:
+            return 0
+        # raise NoAvailableLineError("No customer is in the line")
+
     def accept(self, customer: Customer) -> bool:
-        """Override accept for self-serve line."""
         if self.can_accept(customer):
             self._queue.append(customer)
             customer.current_line = self
             return True
-        return False
-    # 2n for time required
+        else:
+            return False
 
 
 if __name__ == '__main__':
