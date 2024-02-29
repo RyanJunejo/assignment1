@@ -199,7 +199,7 @@ class CheckoutStarted(Event):
             customer = line.first_in_line()
             completion_timestamp = self.timestamp + checkout_time
             events.append(CheckoutCompleted(completion_timestamp, line_number, customer))
-            line.remove_front_customer()
+            # line.remove_front_customer()
         # customer = line.first_in_line()
         # if store.first_in_line(line_number) is customer:
         #     events.append(CheckoutCompleted(self.timestamp + customer.item_time(), line_number, customer))
@@ -279,6 +279,9 @@ class CloseLine(Event):
         closed_customers = store.close_line(line_number)
         for closed_customer in closed_customers:
             events.append(CustomerArrival(self.timestamp, closed_customer))
+
+        # Removes the line so that you cannot join it anymore
+        # store.lines.pop(line_number)
 
         return events
 

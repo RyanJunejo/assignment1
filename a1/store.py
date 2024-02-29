@@ -103,29 +103,42 @@ class GroceryStore:
         Preconditions:
         - customer is not currently in any line in this GroceryStore
         """
-        a = []
+        a = {}
         b = []
 
         if customer.num_items() < 8:
+            index = 0
             for line in self.lines:
-                a.append(line.__len__())
+                a[index] = len(line)
+                index += 1
             if a:
-                min_length = min(a)
-                chosen_line_index = a.index(min_length)
-                self.lines[chosen_line_index].accept(customer)
-                return chosen_line_index
+                min_length = min(a.values())
+                index = 0
+                for i in range(len(a)):
+                    if a[index] != min_length or not self.lines[index].is_open:
+                        index += 1
+                    elif a[index] == min_length:
+                        chosen_line_index = index
+                        self.lines[chosen_line_index].accept(customer)
+                        return chosen_line_index
         elif customer.num_items() >= 8:
             for line in self.lines:
                 if not isinstance(line, ExpressLine):
                     b.append(line)
             if b:
+                index = 0
                 for line in b:
-                    a.append(line.__len__())
+                    a[index] = len(line)
                 if a:
-                    min_length = min(a)
-                    chosen_line_index = a.index(min_length)
-                    self.lines[chosen_line_index].accept(customer)
-                    return chosen_line_index
+                    min_length = min(a.values())
+                    index = 0
+                    for i in range(len(a)):
+                        if a[index] != min_length or not self.lines[index].is_open:
+                            index += 1
+                        elif a[index] == min_length:
+                            chosen_line_index = index
+                            self.lines[chosen_line_index].accept(customer)
+                            return chosen_line_index
         raise NoAvailableLineError()
 
     def next_checkout_time(self, line_number: int) -> int:
@@ -170,20 +183,10 @@ class GroceryStore:
         Preconditions:
         - 0 <= line_number < self.num_lines
         """
+        # use line.close()
         line = self.lines[line_number]
 
-        if not line:
-            # If the line is already empty, return an empty list
-            return []
-
-        # Update the status of the line to indicate that it is closed
-        # and remove customers after the first one
-        closed_line = []
-        while line.__len__() > 1:
-            closed_line.append(line.first_in_line())
-            line.remove_front_customer()
-
-        return closed_line
+        return line.close()
 
     def first_in_line(self, line_number: int) -> Customer | None:
         """Return the first customer in line <line_number>, or None if there
@@ -420,18 +423,19 @@ class CheckoutLine:
         >>> line.is_open
         False
         """
-        if not self.is_open:
+        if not self.is_open or self._queue == []:
             # If the line is already closed, return an empty list
+            self.is_open = False
             return []
-
-        # Mark the line as closed
-        self.is_open = False
 
         # Remove customers after the first one and store them in a new list
         removed_customers = self._queue[1:]
 
         # Clear the line by keeping only the first customer
         self._queue = self._queue[:1]
+
+        # Mark the line as closed
+        self.is_open = False
 
         # Return the list of removed customers
         return removed_customers
@@ -490,7 +494,7 @@ class SelfServeLine(CheckoutLine):
         """Return the time it will take to check out the customer at the front
         of this self-serve line."""
         if self.first_in_line():
-            return self.first_in_line().item_time() # 2n for time required
+            return self.first_in_line().item_time()  # 2n for time required
         else:
             return 0
         # raise NoAvailableLineError("No customer is in the line")

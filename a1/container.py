@@ -31,18 +31,15 @@ class Container:
     """
 
     def add(self, item: Any) -> None:
-        """Add <item> to this Container.
-        """
+        """Add <item> to this Container."""
         raise NotImplementedError
 
     def remove(self) -> Any:
-        """Remove and return a single item from this Container.
-        """
+        """Remove and return a single item from this Container."""
         raise NotImplementedError
 
     def is_empty(self) -> bool:
-        """Return True iff this Container is empty.
-        """
+        """Return True iff this Container is empty."""
         raise NotImplementedError
 
 
@@ -65,11 +62,11 @@ class PriorityQueue(Container):
     - all objects in self._items can be compared to each other using
       comparison operators
     """
+
     _items: list
 
     def __init__(self) -> None:
-        """Initialize an empty PriorityQueue.
-        """
+        """Initialize an empty PriorityQueue."""
         self._items = []
 
     def remove(self) -> Any:
@@ -119,18 +116,22 @@ class PriorityQueue(Container):
         ['anna', 'fred', 'mona', 'sophia']
         """
         i = 0
-        while i < len(self._items) and self._items[i] < item:
+        while i < len(self._items) and (self._items[i] < item or self._items[i] == item):
             i += 1
+
+        # Insert item at the appropriate position in the priority queue
         self._items.insert(i, item)
 
 
 if __name__ == '__main__':
     import doctest
+
     doctest.testmod()
 
     check_pyta = True
     if check_pyta:
         import python_ta
-        python_ta.check_all(config={
-            'allowed-import-modules': ['__future__', 'typing',
-                                       'python_ta', 'doctest']})
+
+        python_ta.check_all(
+            config={'allowed-import-modules': ['__future__', 'typing', 'python_ta', 'doctest']}
+        )
