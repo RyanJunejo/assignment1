@@ -111,6 +111,10 @@ class GroceryStore:
             elif line.is_open and customer.num_items() >= 8 and not isinstance(line, ExpressLine):
                 c.append([line, self.lines.index(line), 0])
 
+        # if no joinable lines, we say that
+        if not c:
+            raise NoAvailableLineError()
+
         # Get the lengths of all those lines
         d = []
         for line in c:
@@ -118,22 +122,31 @@ class GroceryStore:
 
         # Find the min length and match to right line
         min_length = min(d)
-        result = None
+        result = []
         for line in c:
             if len(line[0]) == min_length:
                 line[2] = len(line[0])
-                result = line
-                break
+                result.append(line)
 
         # If we found the match, enter the customer or if not, raise error
-        if result is not None:
-            chosen_line_index = self.lines.index(result[0])
-            if self.lines[chosen_line_index].accept(customer):
-                return chosen_line_index
-            else:
-                raise NoAvailableLineError()
-        else:
-            raise NoAvailableLineError()
+        if result:
+            # Sort our lines with min length by the index so we always join lowest index first
+            sorted_result = sorted(result, key=lambda line: line[1])
+            for line in sorted_result:
+                if self.lines[line[1]].accept(customer):
+                    return line[1]
+                else:
+                    continue
+        raise NoAvailableLineError()
+
+        # if result is not None:
+        #     chosen_line_index = self.lines.index(result[0])
+        #     if self.lines[chosen_line_index].accept(customer):
+        #         return chosen_line_index
+        #     else:
+        #         raise NoAvailableLineError()
+        # else:
+        #     raise NoAvailableLineError()
 
 
         # a = {}

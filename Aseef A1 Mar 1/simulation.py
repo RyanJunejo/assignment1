@@ -113,7 +113,7 @@ class GroceryStoreSimulation:
 
 # We have provided a bit of code to help test your work.
 if __name__ == '__main__':
-    config_file_name = 'input_files/config_111_10.json'
+    config_file_name = 'input_files/config_642_05.json'
     with open(config_file_name) as config_file:
         sim = GroceryStoreSimulation(config_file)
         config_file.close()
@@ -126,12 +126,12 @@ if __name__ == '__main__':
     sim.run(events)
     print(sim.stats)
 
-    import doctest
-    doctest.testmod()
-
-    check_pyta = True
-    if check_pyta:
-        import python_ta
-        python_ta.check_all(config={
-            'allowed-import-modules': ['__future__', 'typing', 'event', 'store',
-                                       'container', 'python_ta', 'doctest']})
+    # import doctest
+    # doctest.testmod()
+    #
+    # check_pyta = True
+    # if check_pyta:
+    #     import python_ta
+    #     python_ta.check_all(config={
+    #         'allowed-import-modules': ['__future__', 'typing', 'event', 'store',
+    #                                    'container', 'python_ta', 'doctest']})
